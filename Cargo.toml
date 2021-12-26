@@ -1,0 +1,13 @@
+[workspace]
+members = [
+    "cli",
+    "gen",
+    "sol",
+]
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+debug = true
