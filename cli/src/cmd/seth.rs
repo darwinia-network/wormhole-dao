@@ -2,7 +2,7 @@ use cast::SimpleCast;
 use structopt::StructOpt;
 
 #[derive(StructOpt)]
-#[structopt(about = "Perform Ethereum RPC calls from the comfort of your command line.")]
+#[structopt(about = "Encode calldata using abi.encode")]
 pub enum Cast {
     Calldata {
         #[structopt(

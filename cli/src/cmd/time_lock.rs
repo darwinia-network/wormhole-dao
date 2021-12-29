@@ -26,7 +26,7 @@ pub enum TimeLock {
 pub enum Proposal {
     #[structopt(about = "Proposal list.")]
     List {
-        #[structopt(default_value = "0x65c0c")]
+        #[structopt(default_value = "0x7ee8fc")]
         #[structopt(long, short)]
         from_block: U64,
         #[structopt(long, short)]
@@ -132,6 +132,7 @@ pub struct ProposalItem {
     data: ethers::prelude::Bytes,
     predecessor: [u8; 32],
     delay: U256,
+    timestamp: u64,
     status: ProposalStatus,
 }
 
@@ -145,6 +146,7 @@ impl ProposalItem {
             data: filter.data.clone(),
             predecessor: filter.predecessor,
             delay: filter.delay,
+            timestamp: 0,
             status: ProposalStatus::Pending,
         }
     }
@@ -154,13 +156,14 @@ impl Display for ProposalItem {
     fn fmt(&self, f: &mut Formatter) -> Result {
         write!(
             f,
-            "id: {}\nindex: {}\ntarget: {:?}\nvalue: {}\ndata: {}\npredecessor: {}\nstatus: {:?}",
+            "id: {}\nindex: {}\ntarget: {:?}\nvalue: {}\ndata: {}\npredecessor: {}\ntimestamp: {}\nstatus: {:?}",
             hex::encode(self.id),
             self.index,
             self.target,
             self.value,
             self.data,
             hex::encode(self.predecessor),
+			self.timestamp,
             self.status
         )
     }
@@ -331,6 +334,7 @@ pub async fn load_proposals(
             TimeLockEvents::CallScheduledFilter(data) => {
                 let mut proposal = ProposalItem::from(data);
                 let ts = time_lock.get_timestamp(proposal.id).call().await?;
+                proposal.timestamp = ts.as_u64();
                 if ts.as_u64() < now {
                     proposal.status = ProposalStatus::Ready;
                 }
@@ -340,14 +344,14 @@ pub async fn load_proposals(
                 if proposals.contains_key(&data.id) {
                     proposals.get_mut(&data.id).unwrap().status = ProposalStatus::Executed;
                 } else {
-                    panic!("proposal not exist");
+                    println!("proposal not exist");
                 }
             }
             TimeLockEvents::CancelledFilter(data) => {
                 if proposals.contains_key(&data.id) {
                     proposals.get_mut(&data.id).unwrap().status = ProposalStatus::Cancelled;
                 } else {
-                    panic!("proposal not exist");
+                    println!("proposal not exist");
                 }
             }
             TimeLockEvents::MinDelayChangeFilter(_) => {}
@@ -438,18 +442,13 @@ pub async fn init_timelock_send(
     private_key: String,
 ) -> eyre::Result<TimeLockContract<SignerMiddleware<Provider<Http>, Wallet<k256::ecdsa::SigningKey>>>>
 {
-    // let provider = Provider::<Http>::try_from("https://crab-rpc.darwinia.network")?;
-    let provider = Provider::<Http>::try_from("https://pangolin-rpc.darwinia.network")?;
+    let provider = Provider::<Http>::try_from("https://crab-rpc.darwinia.network")?;
     let chain_id = provider.get_chainid().await.unwrap().as_u64();
     let key = private_key
         .parse::<LocalWallet>()
         .unwrap()
         .with_chain_id(chain_id);
-    let to = Address::from_str("0x4214611Be6cA4E337b37e192abF076F715Af4CaE")?;
-    // pangolin
-    // let to = Address::from_str("0x2401224012bAE7C2f217392665CA7abC16dCDE1e")?;
-    // crab
-    // let to = Address::from_str("0xED1d1d219f85Bc634f250db5e77E0330Cddc9b2a")?;
+    let to = Address::from_str("0x2401224012bAE7C2f217392665CA7abC16dCDE1e")?;
     let client = SignerMiddleware::new(provider, key);
     let client = Arc::new(client);
     let time_lock = TimeLockContract::new(to, client);

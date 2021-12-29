@@ -19,8 +19,6 @@ pub enum MultiSigWallet {
     SetThreshold {
         #[structopt(about = "New threshold required")]
         required: U256,
-        #[structopt(flatten)]
-        eth: EthereumOpts,
     },
     #[structopt(name = "tx")]
     Transactions(Tx),
@@ -32,23 +30,13 @@ pub enum Owner {
     #[structopt(about = "Owner list.")]
     List,
     #[structopt(about = "Add new owner")]
-    Add {
-        new_owner: Address,
-        #[structopt(flatten)]
-        eth: EthereumOpts,
-    },
+    Add { new_owner: Address },
     #[structopt(about = "Remove an owner")]
-    Remove {
-        rm_owner: Address,
-        #[structopt(flatten)]
-        eth: EthereumOpts,
-    },
+    Remove { rm_owner: Address },
     #[structopt(about = "Replace an owner with a new owner")]
     Replace {
         old_owner: Address,
         new_owner: Address,
-        #[structopt(flatten)]
-        eth: EthereumOpts,
     },
 }
 
@@ -108,11 +96,13 @@ impl MultiSigWallet {
                 let threshold = multi_sig_wallet.required().call().await?;
                 println!("{}", threshold);
             }
-            Self::SetThreshold { required, eth } => {
-                let multi_sig_wallet = init_wallet_send(eth.private_key).await?;
-                let call = multi_sig_wallet.change_requirement(required).gas(100_000);
-                let pending_tx = call.send().await?;
-                println!("{:?}", *pending_tx);
+            Self::SetThreshold { required } => {
+                let multi_sig_wallet = init_wallet_call().await?;
+                let calldata = multi_sig_wallet
+                    .change_requirement(required)
+                    .calldata()
+                    .unwrap();
+                println!("{}", calldata);
             }
         }
         Ok(())
@@ -127,29 +117,26 @@ impl Owner {
                 let owners = multi_sig_wallet.get_owners().call().await?;
                 println!("{:?}", owners);
             }
-            Owner::Add { new_owner, eth } => {
-                let multi_sig_wallet = init_wallet_send(eth.private_key).await?;
-                let call = multi_sig_wallet.add_owner(new_owner).gas(100_000);
-                let pending_tx = call.send().await?;
-                println!("{:?}", *pending_tx);
+            Owner::Add { new_owner } => {
+                let multi_sig_wallet = init_wallet_call().await?;
+                let calldata = multi_sig_wallet.add_owner(new_owner).calldata().unwrap();
+                println!("{}", calldata);
             }
-            Owner::Remove { rm_owner, eth } => {
-                let multi_sig_wallet = init_wallet_send(eth.private_key).await?;
-                let call = multi_sig_wallet.remove_owner(rm_owner).gas(100_000);
-                let pending_tx = call.send().await?;
-                println!("{:?}", *pending_tx);
+            Owner::Remove { rm_owner } => {
+                let multi_sig_wallet = init_wallet_call().await?;
+                let calldata = multi_sig_wallet.remove_owner(rm_owner).calldata().unwrap();
+                println!("{}", calldata);
             }
             Owner::Replace {
                 old_owner,
                 new_owner,
-                eth,
             } => {
-                let multi_sig_wallet = init_wallet_send(eth.private_key).await?;
-                let call = multi_sig_wallet
+                let multi_sig_wallet = init_wallet_call().await?;
+                let calldata = multi_sig_wallet
                     .replace_owner(old_owner, new_owner)
-                    .gas(100_000);
-                let pending_tx = call.send().await?;
-                println!("{:?}", *pending_tx);
+                    .calldata()
+                    .unwrap();
+                println!("{}", calldata);
             }
         }
         Ok(())
@@ -239,15 +226,13 @@ pub async fn init_wallet_send(
 ) -> eyre::Result<
     MultiSigWalletContract<SignerMiddleware<Provider<Http>, Wallet<k256::ecdsa::SigningKey>>>,
 > {
-    // let provider = Provider::<Http>::try_from("https://crab-rpc.darwinia.network")?;
-    let provider = Provider::<Http>::try_from("https://pangolin-rpc.darwinia.network")?;
+    let provider = Provider::<Http>::try_from("https://crab-rpc.darwinia.network")?;
     let chain_id = provider.get_chainid().await.unwrap().as_u64();
     let key = private_key
         .parse::<LocalWallet>()
         .unwrap()
         .with_chain_id(chain_id);
-    // let to = Address::from_str("0x0050F880c35c31c13BFd9cBb7D28AafaEcA3abd2")?;
-    let to = Address::from_str("0xc8C1680B18D432732D07c044669915726fAF67D0")?;
+    let to = Address::from_str("0x0050F880c35c31c13BFd9cBb7D28AafaEcA3abd2")?;
     let client = SignerMiddleware::new(provider, key);
     let client = Arc::new(client);
     let multi_sig_wallet = MultiSigWalletContract::new(to, client);
