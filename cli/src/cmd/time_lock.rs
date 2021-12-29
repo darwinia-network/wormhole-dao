@@ -3,22 +3,22 @@ use crate::bindings::time_lock::{
 };
 use crate::cmd::utils::Bytes;
 use async_recursion::async_recursion;
-use std::time::{SystemTime, UNIX_EPOCH};
-use structopt::StructOpt;
-
-use std::collections::{HashMap, HashSet};
-
 use ethers::prelude::*;
+use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter, Result};
+use std::time::{SystemTime, UNIX_EPOCH};
 use std::{convert::TryFrom, str::FromStr, sync::Arc};
-
-use super::EthereumOpts;
+use structopt::StructOpt;
 
 #[derive(StructOpt)]
 #[structopt(about = "TimeLock related commands.")]
 pub enum TimeLock {
+    #[structopt(name = "min delay")]
+    MinDelay,
     #[structopt(name = "proposal")]
     Proposals(Proposal),
+    #[structopt(name = "role")]
+    Roles(Role),
 }
 
 #[derive(StructOpt)]
@@ -62,15 +62,11 @@ pub enum Proposal {
         salt: H256,
         #[structopt(about = "Delay time to execute the proposal, should be larger than minDelay")]
         delay: U256,
-        #[structopt(flatten)]
-        eth: EthereumOpts,
     },
     #[structopt(about = "Cancel an proposal.")]
     Cancel {
         #[structopt(about = "Proposal ID")]
         id: H256,
-        #[structopt(flatten)]
-        eth: EthereumOpts,
     },
     #[structopt(about = "Execute an (ready) proposal containing a single transaction.")]
     Execute {
@@ -92,8 +88,30 @@ pub enum Proposal {
             about = "Used to disambiguate two otherwise identical proposals. This can be any random value."
         )]
         salt: H256,
-        #[structopt(flatten)]
-        eth: EthereumOpts,
+    },
+}
+
+#[derive(StructOpt)]
+#[structopt(about = "TimeLock role related commands.")]
+pub enum Role {
+    IsAdmin {
+        account: Address,
+    },
+    IsProposer {
+        account: Address,
+    },
+    IsExecutor {
+        account: Address,
+    },
+    Grant {
+        #[structopt(about = "1: admin, 2: proposer, 3: executor")]
+        role: u8,
+        account: Address,
+    },
+    Revoke {
+        #[structopt(about = "1: admin, 2: proposer, 3: executor")]
+        role: u8,
+        account: Address,
     },
 }
 
@@ -151,7 +169,70 @@ impl Display for ProposalItem {
 impl TimeLock {
     pub async fn run(self) -> eyre::Result<()> {
         match self {
+            TimeLock::MinDelay => {
+                let time_lock = init_timelock_call().await?;
+                let min_delay = time_lock.get_min_delay().call().await?;
+                println!("{}", min_delay);
+            }
             TimeLock::Proposals(_p) => _p.run().await?,
+            TimeLock::Roles(_r) => _r.run().await?,
+        }
+        Ok(())
+    }
+}
+
+impl Role {
+    pub async fn run(self) -> eyre::Result<()> {
+        match self {
+            Role::IsAdmin { account } => {
+                let time_lock = init_timelock_call().await?;
+                let timelock_admin_role = time_lock.timelock_admin_role().call().await?;
+                let is = time_lock
+                    .has_role(timelock_admin_role, account)
+                    .call()
+                    .await?;
+                println!("{}", is);
+            }
+            Role::IsProposer { account } => {
+                let time_lock = init_timelock_call().await?;
+                let proposer_role = time_lock.proposer_role().call().await?;
+                let is = time_lock.has_role(proposer_role, account).call().await?;
+                println!("{}", is);
+            }
+            Role::IsExecutor { account } => {
+                let time_lock = init_timelock_call().await?;
+                let executor_role = time_lock.executor_role().call().await?;
+                let is = time_lock.has_role(executor_role, account).call().await?;
+                println!("{}", is);
+            }
+            Role::Grant { role, account } => {
+                let time_lock = init_timelock_call().await?;
+                let role = if role == 1 {
+                    time_lock.timelock_admin_role().call().await?
+                } else if role == 2 {
+                    time_lock.proposer_role().call().await?
+                } else if role == 3 {
+                    time_lock.executor_role().call().await?
+                } else {
+                    panic!("unexpect role");
+                };
+                let calldata = time_lock.grant_role(role, account).calldata().unwrap();
+                println!("{}", calldata);
+            }
+            Role::Revoke { role, account } => {
+                let time_lock = init_timelock_call().await?;
+                let role = if role == 1 {
+                    time_lock.timelock_admin_role().call().await?
+                } else if role == 2 {
+                    time_lock.proposer_role().call().await?
+                } else if role == 3 {
+                    time_lock.executor_role().call().await?
+                } else {
+                    panic!("unexpect role");
+                };
+                let calldata = time_lock.revoke_role(role, account).calldata().unwrap();
+                println!("{}", calldata);
+            }
         }
         Ok(())
     }
@@ -180,11 +261,10 @@ impl Proposal {
                 predecessor,
                 salt,
                 delay,
-                eth,
             } => {
-                let time_lock = init_timelock_send(eth.private_key).await?;
+                let time_lock = init_timelock_call().await?;
                 let calldata = ethers::prelude::Bytes::from(data.0);
-                let call = time_lock
+                let payload = time_lock
                     .schedule(
                         target,
                         value,
@@ -193,15 +273,14 @@ impl Proposal {
                         *salt.as_fixed_bytes(),
                         delay,
                     )
-                    .gas(100_000);
-                let pending_tx = call.send().await?;
-                println!("{:?}", *pending_tx);
+                    .calldata()
+                    .unwrap();
+                println!("{}", payload);
             }
-            Proposal::Cancel { id, eth } => {
-                let time_lock = init_timelock_send(eth.private_key).await?;
-                let call = time_lock.cancel(*id.as_fixed_bytes()).gas(100_000);
-                let pending_tx = call.send().await?;
-                println!("{:?}", *pending_tx);
+            Proposal::Cancel { id } => {
+                let time_lock = init_timelock_call().await?;
+                let calldata = time_lock.cancel(*id.as_fixed_bytes()).calldata().unwrap();
+                println!("{}", calldata);
             }
             Proposal::Execute {
                 target,
@@ -209,11 +288,10 @@ impl Proposal {
                 data,
                 predecessor,
                 salt,
-                eth,
             } => {
-                let time_lock = init_timelock_send(eth.private_key).await?;
+                let time_lock = init_timelock_call().await?;
                 let calldata = ethers::prelude::Bytes::from(data.0);
-                let call = time_lock
+                let payload = time_lock
                     .execute(
                         target,
                         value,
@@ -221,9 +299,9 @@ impl Proposal {
                         *predecessor.as_fixed_bytes(),
                         *salt.as_fixed_bytes(),
                     )
-                    .gas(200_000);
-                let pending_tx = call.send().await?;
-                println!("{:?}", *pending_tx);
+                    .calldata()
+                    .unwrap();
+                println!("{}", payload);
             }
         }
         Ok(())
