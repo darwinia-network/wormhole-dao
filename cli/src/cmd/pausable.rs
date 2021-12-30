@@ -6,7 +6,7 @@ use structopt::StructOpt;
 #[derive(StructOpt)]
 #[structopt(about = "Pausable related commands")]
 pub enum Pausable {
-    #[structopt(name = "Show paused status")]
+    #[structopt(about = "Show paused status")]
     Paused {
         addr: Address,
     },

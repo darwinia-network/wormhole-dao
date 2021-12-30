@@ -32,6 +32,8 @@ pub enum Proposal {
         #[structopt(long, short)]
         to_block: Option<U64>,
         #[structopt(long)]
+        latest: Option<U64>,
+        #[structopt(long)]
         no_done: bool,
         #[structopt(long)]
         no_ready: bool,
@@ -247,13 +249,14 @@ impl Proposal {
             Proposal::List {
                 from_block,
                 to_block,
+                latest,
                 no_done,
                 no_ready,
                 no_pending,
                 no_cancel,
             } => {
                 load_proposals(
-                    from_block, to_block, no_done, no_ready, no_pending, no_cancel,
+                    from_block, to_block, latest, no_done, no_ready, no_pending, no_cancel,
                 )
                 .await?;
             }
@@ -314,6 +317,7 @@ impl Proposal {
 pub async fn load_proposals(
     from_block: U64,
     to_block: Option<U64>,
+    latest: Option<U64>,
     no_done: bool,
     no_ready: bool,
     no_pending: bool,
@@ -325,9 +329,13 @@ pub async fn load_proposals(
     } else {
         time_lock.client().get_block_number().await.unwrap()
     };
+    let mut _from_block = from_block;
+    if let Some(latest) = latest {
+        _from_block = _to_block - latest;
+    }
     let now = timestamp();
     let mut proposals: HashMap<[u8; 32], ProposalItem> = HashMap::new();
-    let mut events = load_events(time_lock.clone(), &from_block, &_to_block).await;
+    let mut events = load_events(time_lock.clone(), &_from_block, &_to_block).await;
     events.sort_by(|a, b| a.1.block_number.cmp(&b.1.block_number));
     for event in events {
         match &event.0 {

@@ -8,7 +8,11 @@ use structopt::StructOpt;
 
 #[derive(StructOpt)]
 pub struct EthereumOpts {
-    #[structopt(long = "private-key", help = "Your private key string")]
+    #[structopt(
+        long = "private-key",
+        env = "ETH_PRIVATE_KEY",
+        help = "Your private key string"
+    )]
     private_key: String,
 }
 
