@@ -32,7 +32,7 @@ cargo install --git https://github.com/darwinia-network/wormhole-dao --bins dao-
 Timelocked proposal are identified by a unique id (their hash) and follow a specific lifecycle:
 ```
 `Unset` -> `Pending` -> `Pending` + `Ready` -> `Done`
-											-> `Cancel`
+                                        └────> `Cancel`
 ```
 * *Proposal status:*
 ** *Unset:* An operation that is not part of the proposal mechanism.
