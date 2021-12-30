@@ -18,7 +18,7 @@ pub enum MultiSigWallet {
     #[structopt(name = "set-threshold")]
     SetThreshold {
         #[structopt(about = "New threshold required")]
-        required: U256,
+        required: String,
     },
     #[structopt(name = "tx")]
     Transactions(Tx),
@@ -46,9 +46,9 @@ pub enum Tx {
     #[structopt(about = "Transaction list.")]
     List {
         #[structopt(default_value = "0")]
-        from: U256,
+        from: String,
 
-        to: Option<U256>,
+        to: Option<String>,
 
         #[structopt(long)]
         no_pending: bool,
@@ -58,7 +58,7 @@ pub enum Tx {
     #[structopt(about = "Submit and confirm a transaction.")]
     Submit {
         destination: Address,
-        value: U256,
+        value: String,
         data: Bytes,
         #[structopt(flatten)]
         eth: EthereumOpts,
@@ -66,21 +66,21 @@ pub enum Tx {
     #[structopt(about = "Confirm a transaction.")]
     Confirm {
         #[structopt(about = "Transaction ID.")]
-        tx_id: U256,
+        tx_id: String,
         #[structopt(flatten)]
         eth: EthereumOpts,
     },
     #[structopt(about = "Execute a confirmed transaction.")]
     Execute {
         #[structopt(about = "Transaction ID.")]
-        tx_id: U256,
+        tx_id: String,
         #[structopt(flatten)]
         eth: EthereumOpts,
     },
     #[structopt(about = "Revoke a confirmation for a transaction.")]
     Revoke {
         #[structopt(about = "Transaction ID.")]
-        tx_id: U256,
+        tx_id: String,
         #[structopt(flatten)]
         eth: EthereumOpts,
     },
@@ -98,8 +98,9 @@ impl MultiSigWallet {
             }
             Self::SetThreshold { required } => {
                 let multi_sig_wallet = init_wallet_call().await?;
+                let _required = U256::from_str_radix(&required, 10)?;
                 let calldata = multi_sig_wallet
-                    .change_requirement(required)
+                    .change_requirement(_required)
                     .calldata()
                     .unwrap();
                 println!("{}", calldata);
@@ -154,12 +155,13 @@ impl Tx {
             } => {
                 let multi_sig_wallet = init_wallet_call().await?;
                 let tx_count = if let Some(_to) = to {
-                    _to
+                    U256::from_str_radix(&_to, 10)?
                 } else {
                     multi_sig_wallet.transaction_count().call().await?
                 };
+                let _from = U256::from_str_radix(&from, 10)?;
                 let ids = multi_sig_wallet
-                    .get_transaction_ids(from, tx_count, !no_pending, !no_executed)
+                    .get_transaction_ids(_from, tx_count, !no_pending, !no_executed)
                     .call()
                     .await?;
                 for id in ids {
@@ -183,27 +185,29 @@ impl Tx {
             } => {
                 let multi_sig_wallet = init_wallet_send(eth.private_key).await?;
                 let calldata = ethers::prelude::Bytes::from(data.0);
-                let call = multi_sig_wallet
-                    .submit_transaction(destination, value, calldata)
-                    .gas(200_000);
+                let _value = U256::from_str_radix(&value, 10)?;
+                let call = multi_sig_wallet.submit_transaction(destination, _value, calldata);
                 let pending_tx = call.send().await?;
                 println!("{:?}", *pending_tx);
             }
             Tx::Confirm { tx_id, eth } => {
                 let multi_sig_wallet = init_wallet_send(eth.private_key).await?;
-                let call = multi_sig_wallet.confirm_transaction(tx_id).gas(200_000);
+                let _tx_id = U256::from_str_radix(&tx_id, 10)?;
+                let call = multi_sig_wallet.confirm_transaction(_tx_id).gas(500_000);
                 let pending_tx = call.send().await?;
                 println!("{:?}", *pending_tx);
             }
             Tx::Execute { tx_id, eth } => {
+                let _tx_id = U256::from_str_radix(&tx_id, 10)?;
                 let multi_sig_wallet = init_wallet_send(eth.private_key).await?;
-                let call = multi_sig_wallet.execute_transaction(tx_id).gas(200_000);
+                let call = multi_sig_wallet.execute_transaction(_tx_id).gas(500_000);
                 let pending_tx = call.send().await?;
                 println!("{:?}", *pending_tx);
             }
             Tx::Revoke { tx_id, eth } => {
+                let _tx_id = U256::from_str_radix(&tx_id, 10)?;
                 let multi_sig_wallet = init_wallet_send(eth.private_key).await?;
-                let call = multi_sig_wallet.revoke_confirmation(tx_id).gas(100_000);
+                let call = multi_sig_wallet.revoke_confirmation(_tx_id).gas(100_000);
                 let pending_tx = call.send().await?;
                 println!("{:?}", *pending_tx);
             }

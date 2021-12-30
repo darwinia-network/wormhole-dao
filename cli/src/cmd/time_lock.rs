@@ -1,3 +1,4 @@
+use super::EthereumOpts;
 use crate::bindings::time_lock::{
     CallScheduledFilter, TimeLock as TimeLockContract, TimeLockEvents,
 };
@@ -13,7 +14,7 @@ use structopt::StructOpt;
 #[derive(StructOpt)]
 #[structopt(about = "TimeLock related commands.")]
 pub enum TimeLock {
-    #[structopt(name = "min delay")]
+    #[structopt(name = "min-delay")]
     MinDelay,
     #[structopt(name = "proposal")]
     Proposals(Proposal),
@@ -26,13 +27,13 @@ pub enum TimeLock {
 pub enum Proposal {
     #[structopt(about = "Proposal list.")]
     List {
-        #[structopt(default_value = "0x7ee8fc")]
+        #[structopt(default_value = "8317180")]
         #[structopt(long, short)]
-        from_block: U64,
+        from_block: String,
         #[structopt(long, short)]
-        to_block: Option<U64>,
+        to_block: Option<String>,
         #[structopt(long)]
-        latest: Option<U64>,
+        latest: Option<String>,
         #[structopt(long)]
         no_done: bool,
         #[structopt(long)]
@@ -51,7 +52,7 @@ pub enum Proposal {
         #[structopt(
             about = "In wei, that should be sent with the transaction. Most of the time this will be 0."
         )]
-        value: U256,
+        value: String,
         #[structopt(
             about = "Containing the encoded function selector and parameters of the call by abi.encode."
         )]
@@ -63,7 +64,7 @@ pub enum Proposal {
         )]
         salt: H256,
         #[structopt(about = "Delay time to execute the proposal, should be larger than minDelay")]
-        delay: U256,
+        delay: String,
     },
     #[structopt(about = "Cancel an proposal.")]
     Cancel {
@@ -79,7 +80,7 @@ pub enum Proposal {
         #[structopt(
             about = "In wei, that should be sent with the transaction. Most of the time this will be 0."
         )]
-        value: U256,
+        value: String,
         #[structopt(
             about = "Containing the encoded function selector and parameters of the call by abi.encode."
         )]
@@ -90,6 +91,8 @@ pub enum Proposal {
             about = "Used to disambiguate two otherwise identical proposals. This can be any random value."
         )]
         salt: H256,
+        #[structopt(flatten)]
+        eth: EthereumOpts,
     },
 }
 
@@ -270,14 +273,16 @@ impl Proposal {
             } => {
                 let time_lock = init_timelock_call().await?;
                 let calldata = ethers::prelude::Bytes::from(data.0);
+                let _value = U256::from_str_radix(&value, 10)?;
+                let _delay = U256::from_str_radix(&delay, 10)?;
                 let payload = time_lock
                     .schedule(
                         target,
-                        value,
+                        _value,
                         calldata,
                         *predecessor.as_fixed_bytes(),
                         *salt.as_fixed_bytes(),
-                        delay,
+                        _delay,
                     )
                     .calldata()
                     .unwrap();
@@ -294,20 +299,22 @@ impl Proposal {
                 data,
                 predecessor,
                 salt,
+                eth,
             } => {
-                let time_lock = init_timelock_call().await?;
+                let time_lock = init_timelock_send(eth.private_key).await?;
                 let calldata = ethers::prelude::Bytes::from(data.0);
-                let payload = time_lock
+                let _value = U256::from_str_radix(&value, 10)?;
+                let call = time_lock
                     .execute(
                         target,
-                        value,
+                        _value,
                         calldata,
                         *predecessor.as_fixed_bytes(),
                         *salt.as_fixed_bytes(),
                     )
-                    .calldata()
-                    .unwrap();
-                println!("{}", payload);
+                    .gas(500_000);
+                let pending_tx = call.send().await?;
+                println!("{:?}", *pending_tx);
             }
         }
         Ok(())
@@ -315,9 +322,9 @@ impl Proposal {
 }
 
 pub async fn load_proposals(
-    from_block: U64,
-    to_block: Option<U64>,
-    latest: Option<U64>,
+    from_block: String,
+    to_block: Option<String>,
+    latest: Option<String>,
     no_done: bool,
     no_ready: bool,
     no_pending: bool,
@@ -325,13 +332,13 @@ pub async fn load_proposals(
 ) -> eyre::Result<()> {
     let time_lock = init_timelock_call().await?;
     let _to_block = if let Some(to_block) = to_block {
-        to_block
+        U64::from_str_radix(&to_block, 10)?
     } else {
-        time_lock.client().get_block_number().await.unwrap()
+        time_lock.client().get_block_number().await?
     };
-    let mut _from_block = from_block;
+    let mut _from_block = U64::from_str_radix(&from_block, 10)?;
     if let Some(latest) = latest {
-        _from_block = _to_block - latest;
+        _from_block = _to_block - U64::from_str_radix(&latest, 10)?;
     }
     let now = timestamp();
     let mut proposals: HashMap<[u8; 32], ProposalItem> = HashMap::new();
