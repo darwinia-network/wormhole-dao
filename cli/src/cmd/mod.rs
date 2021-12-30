@@ -1,5 +1,6 @@
 mod multi_sig_wallet;
 mod pausable;
+mod proposal;
 mod seth;
 mod time_lock;
 mod utils;
@@ -25,6 +26,8 @@ pub enum Command {
     TimeLock(time_lock::TimeLock),
     #[structopt(name = "pausable")]
     Pausable(pausable::Pausable),
+    #[structopt(name = "proposal")]
+    Proposal(proposal::Proposal),
     #[structopt(name = "seth")]
     Seth(seth::Cast),
 }
@@ -35,6 +38,7 @@ impl Command {
             Command::MultiSigWallet(cmd) => cmd.run().await?,
             Command::TimeLock(cmd) => cmd.run().await?,
             Command::Pausable(cmd) => cmd.run().await?,
+            Command::Proposal(cmd) => cmd.run().await?,
             Command::Seth(cmd) => cmd.run().await?,
         }
         Ok(())

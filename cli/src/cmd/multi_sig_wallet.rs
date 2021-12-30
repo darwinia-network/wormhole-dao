@@ -168,12 +168,14 @@ impl Tx {
                     // multicall
                     let tx = multi_sig_wallet.transactions(id).call().await?;
                     if !no_executed && tx.3 || !no_pending && !tx.3 {
+                        let comfirms = multi_sig_wallet.get_confirmations(id).call().await?;
                         println!("========================================================");
-                        println!("id          : {}", id);
-                        println!("destination : {:?}", tx.0);
-                        println!("value       : {}", tx.1);
-                        println!("data        : {}", tx.2);
-                        println!("executed    : {}", tx.3);
+                        println!("id            : {}", id);
+                        println!("destination   : {:?}", tx.0);
+                        println!("value         : {}", tx.1);
+                        println!("data          : {}", tx.2);
+                        println!("Confirmations : {:?}", comfirms);
+                        println!("executed      : {}", tx.3);
                     }
                 }
             }
