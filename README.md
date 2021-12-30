@@ -48,10 +48,10 @@ dao-cli proposal list
 It will take a loog time for scanning the all blocks. so you can set the `--latest <block>` to see
 the latest block's proposal.
 ```
-	--no-cancel
-	--no-done
-	--no-pending
-	--no-ready
+--no-cancel
+--no-done
+--no-pending
+--no-ready
 ```
 You can set the flag above to filter the proposal.
 
