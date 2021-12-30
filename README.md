@@ -34,18 +34,19 @@ Timelocked proposal are identified by a unique id (their hash) and follow a spec
 `Unset` -> `Pending` -> `Pending` + `Ready` -> `Done`
                                         └────> `Cancel`
 ```
-* *Proposal status:*
-** *Unset:* An operation that is not part of the proposal mechanism.
-** *Pending:* An operation that has been scheduled, before the timer expires.
-** *Ready:* An operation that has been scheduled, after the timer expires.
-** *Done:* An operation that has been executed.
-** *Cancel:* An operation that has been cancelled.
+
+*Proposal status:*
+* *Unset:* An operation that is not part of the proposal mechanism.
+* *Pending:* An operation that has been scheduled, before the timer expires.
+* *Ready:* An operation that has been scheduled, after the timer expires.
+* *Done:* An operation that has been executed.
+* *Cancel:* An operation that has been cancelled.
 
 ### Proposal list
 ```
 dao-cli proposal list
 ```
-It will take a loog time for scanning the all blocks. so you can set the `--latest <block>` to see
+It will take a long time for scanning the all blocks. so you can set the `--latest <block>` to see
 the latest block's proposal.
 ```
 --no-cancel
