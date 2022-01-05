@@ -11,7 +11,10 @@ cast = { git = "https://github.com/gakonst/foundry" }
 color-eyre = "0.5.11"
 ethers = { git = "https://github.com/gakonst/ethers-rs", features = ["legacy"] }
 eyre = "0.6.5"
+graphql_client = "0.10.0"
 hex = "0.4.3"
+reqwest = { version = "0.11.8", features = ["json"] }
+serde = "1.0.133"
 serde_json = "1.0.73"
 structopt = "0.3.25"
 tokio = { version = "1.15.0", features = ["macros", "rt-multi-thread"] }
@@ -20,3 +23,5 @@ tokio = { version = "1.15.0", features = ["macros", "rt-multi-thread"] }
 name = "dao-cli"
 path = "src/main.rs"
 doc = false
+
+[features]

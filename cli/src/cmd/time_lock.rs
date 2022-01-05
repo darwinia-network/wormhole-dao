@@ -3,8 +3,10 @@ use crate::bindings::time_lock::{
     CallScheduledFilter, TimeLock as TimeLockContract, TimeLockEvents,
 };
 use crate::cmd::utils::Bytes;
+use crate::graphql::proposal::{proposal_view, ProposalView};
 use async_recursion::async_recursion;
 use ethers::prelude::*;
+use graphql_client::{GraphQLQuery, Response};
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter, Result};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -27,6 +29,8 @@ pub enum TimeLock {
 pub enum Proposal {
     #[structopt(about = "Proposal list.")]
     List {
+        #[structopt(long, short)]
+        no_subgraph: bool,
         #[structopt(default_value = "8317180")]
         #[structopt(long, short)]
         from_block: String,
@@ -250,6 +254,7 @@ impl Proposal {
     pub async fn run(self) -> eyre::Result<()> {
         match self {
             Proposal::List {
+                no_subgraph,
                 from_block,
                 to_block,
                 latest,
@@ -258,10 +263,14 @@ impl Proposal {
                 no_pending,
                 no_cancel,
             } => {
-                load_proposals(
-                    from_block, to_block, latest, no_done, no_ready, no_pending, no_cancel,
-                )
-                .await?;
+                if no_subgraph {
+                    load_proposals(
+                        from_block, to_block, latest, no_done, no_ready, no_pending, no_cancel,
+                    )
+                    .await?;
+                } else {
+                    load_proposals_from_subgraph().await?;
+                }
             }
             Proposal::Schedule {
                 target,
@@ -319,6 +328,28 @@ impl Proposal {
         }
         Ok(())
     }
+}
+
+pub async fn load_proposals_from_subgraph() -> eyre::Result<()> {
+    let client = reqwest::Client::new();
+    let q = ProposalView::build_query(proposal_view::Variables {});
+    let res = client
+        .post("http://localhost:8000/subgraphs/name/WormholeDao/TimeLock")
+        .json(&q)
+        .send()
+        .await?;
+    /// let text = res.text().await?;
+    /// dbg!(&text);
+    let response_body: Response<proposal_view::ResponseData> = res.json().await?;
+    /// dbg!(&response_body);
+    let response_data: proposal_view::ResponseData = response_body.data.unwrap();
+    dbg!(&response_data);
+
+    for p in response_data.proposal_items.iter() {
+        println!("=============================================================================");
+        println!("{}", p);
+    }
+    Ok(())
 }
 
 pub async fn load_proposals(

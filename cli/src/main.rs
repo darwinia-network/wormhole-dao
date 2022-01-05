@@ -1,5 +1,6 @@
 mod bindings;
 mod cmd;
+mod graphql;
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
