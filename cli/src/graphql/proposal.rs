@@ -1,9 +1,10 @@
 pub struct ProposalView;
 pub mod proposal_view {
+    #![allow(dead_code)]
+    use std::result::Result;
     pub const OPERATION_NAME: &str = "ProposalView";
-    pub const QUERY : & str = "query ProposalView {\n  proposalItems {\n    id\n    index\n    target\n    value\n    data\n    predecessor\n    delay\n    timestamp\n    status\n  }\n}\n" ;
+    pub const QUERY : & str = "query ProposalView {\n  proposals {\n    id\n    operations {\n      id\n      index\n      target\n      value\n      data\n    }\n    predecessor\n    delay\n    timestamp\n    status\n  }\n}\n" ;
     use serde::{Deserialize, Serialize};
-    use std::fmt::{Display, Formatter, Result};
     #[allow(dead_code)]
     type Boolean = bool;
     #[allow(dead_code)]
@@ -14,41 +15,69 @@ pub mod proposal_view {
     type ID = String;
     type BigInt = String;
     type Bytes = String;
+    #[derive(PartialEq, Debug)]
+    pub enum Status {
+        Pending,
+        Ready,
+        Executed,
+        Cancelled,
+        Other(String),
+    }
+    impl ::serde::Serialize for Status {
+        fn serialize<S: serde::Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
+            ser.serialize_str(match *self {
+                Status::Pending => "Pending",
+                Status::Ready => "Ready",
+                Status::Executed => "Executed",
+                Status::Cancelled => "Cancelled",
+                Status::Other(ref s) => &s,
+            })
+        }
+    }
+    impl<'de> ::serde::Deserialize<'de> for Status {
+        fn deserialize<D: ::serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+            let s = <String>::deserialize(deserializer)?;
+            match s.as_str() {
+                "Pending" => Ok(Status::Pending),
+                "Ready" => Ok(Status::Ready),
+                "Executed" => Ok(Status::Executed),
+                "Cancelled" => Ok(Status::Cancelled),
+                _ => Ok(Status::Other(s)),
+            }
+        }
+    }
     #[derive(Serialize)]
     pub struct Variables;
     #[derive(Deserialize, Serialize, PartialEq, Debug)]
     pub struct ResponseData {
-        #[serde(rename = "proposalItems")]
-        pub proposal_items: Vec<ProposalViewProposalItems>,
+        pub proposals: Vec<ProposalViewProposals>,
     }
     #[derive(Deserialize, Serialize, PartialEq, Debug)]
-    pub struct ProposalViewProposalItems {
+    pub struct ProposalViewProposals {
+        pub id: ID,
+        pub operations: Vec<ProposalViewProposalsOperations>,
+        pub predecessor: Bytes,
+        pub delay: BigInt,
+        pub timestamp: BigInt,
+        pub status: Status,
+    }
+
+    impl std::fmt::Display for ProposalViewProposals {
+        fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+            write!(
+                f,
+                "id: {}\noperations: {:#?}\npredecessor: {}\ntimestamp: {}\nstatus: {:?}",
+                self.id, self.operations, self.predecessor, self.timestamp, self.status
+            )
+        }
+    }
+    #[derive(Deserialize, Serialize, PartialEq, Debug)]
+    pub struct ProposalViewProposalsOperations {
         pub id: ID,
         pub index: BigInt,
         pub target: Bytes,
         pub value: BigInt,
         pub data: Bytes,
-        pub predecessor: Bytes,
-        pub delay: BigInt,
-        pub timestamp: BigInt,
-        pub status: Int,
-    }
-
-    impl Display for ProposalViewProposalItems {
-        fn fmt(&self, f: &mut Formatter) -> Result {
-            write!(
-            f,
-            "id: {}\nindex: {}\ntarget: {:?}\nvalue: {}\ndata: {}\npredecessor: {}\ntimestamp: {}\nstatus: {:?}",
-            self.id,
-            self.index,
-            self.target,
-            self.value,
-            self.data,
-            self.predecessor,
-			self.timestamp,
-            self.status
-        )
-        }
     }
 }
 impl graphql_client::GraphQLQuery for ProposalView {

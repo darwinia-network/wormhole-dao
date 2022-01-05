@@ -338,14 +338,9 @@ pub async fn load_proposals_from_subgraph() -> eyre::Result<()> {
         .json(&q)
         .send()
         .await?;
-    /// let text = res.text().await?;
-    /// dbg!(&text);
     let response_body: Response<proposal_view::ResponseData> = res.json().await?;
-    /// dbg!(&response_body);
     let response_data: proposal_view::ResponseData = response_body.data.unwrap();
-    dbg!(&response_data);
-
-    for p in response_data.proposal_items.iter() {
+    for p in response_data.proposals.iter() {
         println!("=============================================================================");
         println!("{}", p);
     }

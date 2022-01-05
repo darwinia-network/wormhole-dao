@@ -11,6 +11,8 @@ use structopt::StructOpt;
 pub enum Proposal {
     #[structopt(about = "Proposal list.")]
     List {
+        #[structopt(long, short)]
+        no_subgraph: bool,
         #[structopt(default_value = "8317180")]
         #[structopt(long, short)]
         from_block: String,
@@ -88,6 +90,7 @@ impl Proposal {
     pub async fn run(self) -> eyre::Result<()> {
         match self {
             Proposal::List {
+                no_subgraph,
                 from_block,
                 to_block,
                 latest,
@@ -96,10 +99,14 @@ impl Proposal {
                 no_pending,
                 no_cancel,
             } => {
-                time_lock::load_proposals(
-                    from_block, to_block, latest, no_done, no_ready, no_pending, no_cancel,
-                )
-                .await?
+                if no_subgraph {
+                    time_lock::load_proposals(
+                        from_block, to_block, latest, no_done, no_ready, no_pending, no_cancel,
+                    )
+                    .await?
+                } else {
+                    time_lock::load_proposals_from_subgraph().await?;
+                }
             }
             Proposal::Schedule {
                 target,
