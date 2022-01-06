@@ -1,4 +1,5 @@
 use crate::bindings::multi_sig_wallet::MultiSigWallet as MultiSigWalletContract;
+use crate::cmd::conf::*;
 use crate::cmd::utils::Bytes;
 use ethers::prelude::*;
 use std::{convert::TryFrom, str::FromStr, sync::Arc};
@@ -185,7 +186,7 @@ impl Tx {
                 data,
                 eth,
             } => {
-                let multi_sig_wallet = init_wallet_send(eth.private_key).await?;
+                let multi_sig_wallet = init_wallet_send(&eth.private_key).await?;
                 let calldata = ethers::prelude::Bytes::from(data.0);
                 let _value = U256::from_str_radix(&value, 10)?;
                 let call = multi_sig_wallet.submit_transaction(destination, _value, calldata);
@@ -193,7 +194,7 @@ impl Tx {
                 println!("{:?}", *pending_tx);
             }
             Tx::Confirm { tx_id, eth } => {
-                let multi_sig_wallet = init_wallet_send(eth.private_key).await?;
+                let multi_sig_wallet = init_wallet_send(&eth.private_key).await?;
                 let _tx_id = U256::from_str_radix(&tx_id, 10)?;
                 let call = multi_sig_wallet.confirm_transaction(_tx_id).gas(500_000);
                 let pending_tx = call.send().await?;
@@ -201,14 +202,14 @@ impl Tx {
             }
             Tx::Execute { tx_id, eth } => {
                 let _tx_id = U256::from_str_radix(&tx_id, 10)?;
-                let multi_sig_wallet = init_wallet_send(eth.private_key).await?;
+                let multi_sig_wallet = init_wallet_send(&eth.private_key).await?;
                 let call = multi_sig_wallet.execute_transaction(_tx_id).gas(500_000);
                 let pending_tx = call.send().await?;
                 println!("{:?}", *pending_tx);
             }
             Tx::Revoke { tx_id, eth } => {
                 let _tx_id = U256::from_str_radix(&tx_id, 10)?;
-                let multi_sig_wallet = init_wallet_send(eth.private_key).await?;
+                let multi_sig_wallet = init_wallet_send(&eth.private_key).await?;
                 let call = multi_sig_wallet.revoke_confirmation(_tx_id).gas(100_000);
                 let pending_tx = call.send().await?;
                 println!("{:?}", *pending_tx);
@@ -221,24 +222,21 @@ impl Tx {
 pub async fn init_wallet_call() -> eyre::Result<
     MultiSigWalletContract<SignerMiddleware<Provider<Http>, Wallet<k256::ecdsa::SigningKey>>>,
 > {
-    Ok(init_wallet_send(
-        "380eb0f3d505f087e438eca80bc4df9a7faa24f868e69fc0440261a0fc0567dc".to_string(),
-    )
-    .await?)
+    Ok(init_wallet_send(DEFAULT_PRIVATE_KEY).await?)
 }
 
 pub async fn init_wallet_send(
-    private_key: String,
+    private_key: &str,
 ) -> eyre::Result<
     MultiSigWalletContract<SignerMiddleware<Provider<Http>, Wallet<k256::ecdsa::SigningKey>>>,
 > {
-    let provider = Provider::<Http>::try_from("https://crab-rpc.darwinia.network")?;
+    let provider = Provider::<Http>::try_from(ETH_RPC_URL)?;
     let chain_id = provider.get_chainid().await.unwrap().as_u64();
     let key = private_key
         .parse::<LocalWallet>()
         .unwrap()
         .with_chain_id(chain_id);
-    let to = Address::from_str("0x0050F880c35c31c13BFd9cBb7D28AafaEcA3abd2")?;
+    let to = Address::from_str(WORMHOLE_DAO_MULTISIG)?;
     let client = SignerMiddleware::new(provider, key);
     let client = Arc::new(client);
     let multi_sig_wallet = MultiSigWalletContract::new(to, client);

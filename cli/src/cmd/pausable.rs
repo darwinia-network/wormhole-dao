@@ -1,6 +1,7 @@
 use crate::bindings::pausable::Pausable as PausableContract;
+use crate::cmd::conf::*;
 use ethers::prelude::*;
-use std::{convert::TryFrom, str::FromStr, sync::Arc};
+use std::{convert::TryFrom, sync::Arc};
 use structopt::StructOpt;
 
 #[derive(StructOpt)]
@@ -10,8 +11,12 @@ pub enum Pausable {
     Paused {
         addr: Address,
     },
-    Pause,
-    Unpause,
+    Pause {
+        to: Address,
+    },
+    Unpause {
+        to: Address,
+    },
 }
 
 impl Pausable {
@@ -22,14 +27,12 @@ impl Pausable {
                 let paused = pausable.paused().call().await?;
                 println!("{}", paused);
             }
-            Pausable::Pause => {
-                let to = Address::from_str("0x0050F880c35c31c13BFd9cBb7D28AafaEcA3abd2")?;
+            Pausable::Pause { to } => {
                 let pausable = init_pausable_call(to).await?;
                 let calldata = pausable.pause().calldata().unwrap();
                 println!("{}", calldata);
             }
-            Pausable::Unpause => {
-                let to = Address::from_str("0x0050F880c35c31c13BFd9cBb7D28AafaEcA3abd2")?;
+            Pausable::Unpause { to } => {
                 let pausable = init_pausable_call(to).await?;
                 let calldata = pausable.unpause().calldata().unwrap();
                 println!("{}", calldata);
@@ -43,9 +46,9 @@ pub async fn init_pausable_call(
     to: Address,
 ) -> eyre::Result<PausableContract<SignerMiddleware<Provider<Http>, Wallet<k256::ecdsa::SigningKey>>>>
 {
-    let provider = Provider::<Http>::try_from("https://crab-rpc.darwinia.network")?;
+    let provider = Provider::<Http>::try_from(ETH_RPC_URL)?;
     let chain_id = provider.get_chainid().await.unwrap().as_u64();
-    let key = "380eb0f3d505f087e438eca80bc4df9a7faa24f868e69fc0440261a0fc0567dc"
+    let key = DEFAULT_PRIVATE_KEY
         .parse::<LocalWallet>()
         .unwrap()
         .with_chain_id(chain_id);

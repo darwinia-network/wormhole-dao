@@ -10,6 +10,7 @@ pub fn parse_hex(hex: &str) -> eyre::Result<Vec<u8>> {
 }
 
 /// A wrapper struct to overcome structopt's `Vec` special handling.
+#[derive(Debug)]
 pub struct Bytes(pub Vec<u8>);
 impl std::str::FromStr for Bytes {
     type Err = eyre::Error;

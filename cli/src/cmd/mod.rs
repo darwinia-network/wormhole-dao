@@ -1,3 +1,4 @@
+mod conf;
 mod multi_sig_wallet;
 mod pausable;
 mod proposal;
