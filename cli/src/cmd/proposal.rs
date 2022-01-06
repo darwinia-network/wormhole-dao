@@ -121,7 +121,10 @@ impl Proposal {
                     )
                     .await?
                 } else {
-                    time_lock::load_proposals_from_subgraph().await?;
+                    time_lock::load_proposals_from_subgraph(
+                        no_done, no_ready, no_pending, no_cancel,
+                    )
+                    .await?;
                 }
             }
             Proposal::Schedule {

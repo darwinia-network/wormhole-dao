@@ -281,7 +281,7 @@ impl Proposal {
                     )
                     .await?;
                 } else {
-                    load_proposals_from_subgraph().await?;
+                    load_proposals_from_subgraph(no_done, no_ready, no_pending, no_cancel).await?;
                 }
             }
             Proposal::Schedule {
@@ -369,15 +369,45 @@ impl Proposal {
     }
 }
 
-pub async fn load_proposals_from_subgraph() -> eyre::Result<()> {
+pub async fn load_proposals_from_subgraph(
+    no_done: bool,
+    no_ready: bool,
+    no_pending: bool,
+    no_cancel: bool,
+) -> eyre::Result<()> {
     let client = reqwest::Client::new();
     let q = ProposalView::build_query(proposal_view::Variables {});
     let res = client.post(SUBGRAPG_URL).json(&q).send().await?;
     let response_body: Response<proposal_view::ResponseData> = res.json().await?;
     let response_data: proposal_view::ResponseData = response_body.data.unwrap();
+    let mut statuses: HashSet<proposal_view::Status> = [
+        proposal_view::Status::Executed,
+        proposal_view::Status::Pending,
+        proposal_view::Status::Ready,
+        proposal_view::Status::Cancelled,
+    ]
+    .iter()
+    .cloned()
+    .collect();
+    if no_done {
+        statuses.remove(&proposal_view::Status::Executed);
+    }
+    if no_pending {
+        statuses.remove(&proposal_view::Status::Pending);
+    }
+    if no_ready {
+        statuses.remove(&proposal_view::Status::Ready);
+    }
+    if no_cancel {
+        statuses.remove(&proposal_view::Status::Cancelled);
+    }
     for p in response_data.proposals.iter() {
-        println!("=============================================================================");
-        println!("{}", p);
+        if statuses.contains(&p.status) {
+            println!(
+                "============================================================================="
+            );
+            println!("{}", p);
+        }
     }
     Ok(())
 }

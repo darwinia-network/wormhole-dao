@@ -15,7 +15,7 @@ pub mod proposal_view {
     type ID = String;
     type BigInt = String;
     type Bytes = String;
-    #[derive(PartialEq, Debug)]
+    #[derive(PartialEq, Clone, Hash, Eq, Debug)]
     pub enum Status {
         Pending,
         Ready,
