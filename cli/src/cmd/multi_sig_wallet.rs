@@ -50,7 +50,8 @@ pub enum Tx {
         from: String,
 
         to: Option<String>,
-
+        #[structopt(long)]
+        latest: Option<String>,
         #[structopt(long)]
         no_pending: bool,
         #[structopt(long)]
@@ -151,6 +152,7 @@ impl Tx {
             Tx::List {
                 from,
                 to,
+                latest,
                 no_pending,
                 no_executed,
             } => {
@@ -160,7 +162,11 @@ impl Tx {
                 } else {
                     multi_sig_wallet.transaction_count().call().await?
                 };
-                let _from = U256::from_str_radix(&from, 10)?;
+                let _from = if let Some(latest) = latest {
+                    tx_count - U256::from_str_radix(&latest, 10)?
+                } else {
+                    U256::from_str_radix(&from, 10)?
+                };
                 let ids = multi_sig_wallet
                     .get_transaction_ids(_from, tx_count, !no_pending, !no_executed)
                     .call()
