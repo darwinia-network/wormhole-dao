@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 async-recursion = "0.3.2"
 cast = { git = "https://github.com/gakonst/foundry" }
+foundry-utils = { git = "https://github.com/gakonst/foundry" }
 color-eyre = "0.5.11"
 ethers = { git = "https://github.com/gakonst/ethers-rs", features = ["legacy"] }
 eyre = "0.6.5"
