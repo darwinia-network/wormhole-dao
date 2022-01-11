@@ -1,5 +1,9 @@
 { profile ? "default" }:
 with import <nixpkgs> { overlays = [ (import <rust-overlay>) ]; };
 mkShell {
-  nativeBuildInputs = [ rust-bin.stable.latest.${profile} ];
+  nativeBuildInputs = [
+    rust-bin.stable.latest.${profile}
+    pkg-config
+    openssl
+  ];
 }
