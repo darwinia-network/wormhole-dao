@@ -354,10 +354,10 @@ impl Proposal {
                 let to = Address::from_str(WORMHOLE_DAO_TIME_LOCK)?;
                 let from = key.address();
                 let data = SimpleCast::calldata(sig, &args)?;
-                let tx = TransactionRequest::new()
-                    .from(from)
-                    .to(to)
-                    .data(ethers::prelude::Bytes::from(data.as_bytes().to_vec()));
+                let data = data.strip_prefix("0x").unwrap_or(&data);
+                let data = hex::decode(data)?;
+                let data = ethers::prelude::Bytes::from(data);
+                let tx = TransactionRequest::new().from(from).to(to).data(data);
                 let client = SignerMiddleware::new(provider, key);
                 let pending_tx = client
                     .send_transaction(TypedTransaction::Legacy(tx), None)
@@ -409,6 +409,7 @@ pub async fn load_proposals_from_subgraph(
             println!("{}", p);
         }
     }
+    println!("Proposals Count: {}", response_data.proposals.len());
     Ok(())
 }
 

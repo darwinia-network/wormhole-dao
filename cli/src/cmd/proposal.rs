@@ -199,11 +199,11 @@ impl Proposal {
                 let calldata = SimpleCast::calldata(sig, &args)?;
                 let multi_sig_wallet = multi_sig_wallet::init_wallet_send(&eth.private_key).await?;
                 let destination = Address::from_str(WORMHOLE_DAO_TIME_LOCK)?;
-                let call = multi_sig_wallet.submit_transaction(
-                    destination,
-                    U256::default(),
-                    ethers::prelude::Bytes::from(calldata.as_bytes().to_vec()),
-                );
+                let calldata = calldata.strip_prefix("0x").unwrap_or(&calldata);
+                let calldata = hex::decode(calldata)?;
+                let calldata = ethers::prelude::Bytes::from(calldata);
+                let call =
+                    multi_sig_wallet.submit_transaction(destination, U256::default(), calldata);
                 let pending_tx = call.send().await?;
                 println!("{:?}", *pending_tx);
             }
@@ -219,10 +219,10 @@ impl Proposal {
                 let to = Address::from_str(WORMHOLE_DAO_TIME_LOCK)?;
                 let from = key.address();
                 let data = SimpleCast::calldata(sig, &args)?;
-                let tx = TransactionRequest::new()
-                    .from(from)
-                    .to(to)
-                    .data(ethers::prelude::Bytes::from(data.as_bytes().to_vec()));
+                let data = data.strip_prefix("0x").unwrap_or(&data);
+                let data = hex::decode(data)?;
+                let data = ethers::prelude::Bytes::from(data);
+                let tx = TransactionRequest::new().from(from).to(to).data(data);
                 let client = SignerMiddleware::new(provider, key);
                 let pending_tx = client
                     .send_transaction(TypedTransaction::Legacy(tx), None)
